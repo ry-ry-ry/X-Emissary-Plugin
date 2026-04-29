@@ -1,0 +1,348 @@
+(() => {
+  const MENU_ITEM_MARK = "data-defense-emissary";
+  const TAG = "[DefenseEmissary]";
+  const DEBUG = false;
+
+  let lastClickedTweetId = null;
+  let lastClickedAt = 0;
+  const CLICK_TTL_MS = 5000;
+
+  let shareMenuPending = false;
+  let shareMenuPendingAt = 0;
+  const SHARE_PENDING_TTL_MS = 5000;
+
+  log("content script loaded on", location.href);
+
+  // Capture the tweet ID and detect share-button clicks.
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+
+      const article = target.closest("article");
+      if (article) {
+        const id = findTweetIdInArticle(article);
+        if (id) {
+          lastClickedTweetId = id;
+          lastClickedAt = Date.now();
+        }
+      }
+
+      // Look for a share button: testid, aria-label, or a parent button containing a share-icon link.
+      // Twitter currently uses data-testid="share" on the share button container; older variants
+      // used aria-label "Share post" / "Share Tweet". We accept any match as a hint.
+      const shareBtn =
+        target.closest('[data-testid="share"]') ||
+        target.closest('[aria-label*="Share" i]') ||
+        target.closest('[aria-haspopup="menu"][role="button"]');
+
+      if (shareBtn && article) {
+        shareMenuPending = true;
+        shareMenuPendingAt = Date.now();
+        log("share-button click detected", {
+          testid: shareBtn.getAttribute("data-testid"),
+          aria: shareBtn.getAttribute("aria-label"),
+          tweetId: lastClickedTweetId,
+        });
+      }
+    },
+    true,
+  );
+
+  function findTweetIdInArticle(article) {
+    const links = article.querySelectorAll('a[href*="/status/"]');
+    for (const a of links) {
+      const m = a.getAttribute("href").match(/\/status\/(\d{5,})/);
+      if (m) return m[1];
+    }
+    return null;
+  }
+
+  // Watch the whole document body for new menus.
+  const observer = new MutationObserver((mutations) => {
+    for (const mut of mutations) {
+      for (const node of mut.addedNodes) {
+        if (!(node instanceof HTMLElement)) continue;
+        const menus = [];
+        if (node.matches && node.matches('[role="menu"]')) menus.push(node);
+        if (node.querySelectorAll) menus.push(...node.querySelectorAll('[role="menu"]'));
+        for (const menu of menus) considerMenu(menu);
+      }
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  function considerMenu(menu) {
+    if (menu.hasAttribute(MENU_ITEM_MARK)) return;
+
+    const pendingFresh = shareMenuPending && Date.now() - shareMenuPendingAt < SHARE_PENDING_TTL_MS;
+    const tweetFresh = lastClickedTweetId && Date.now() - lastClickedAt < CLICK_TTL_MS;
+
+    if (!tweetFresh) {
+      log("menu appeared but no recent tweet id");
+      return;
+    }
+
+    // Use the share-pending flag if set; otherwise fall back to a content sniff
+    // for resilience against Twitter UI changes that hide the share button's testid.
+    const looksLikeShareMenu = pendingFresh || sniffShareMenu(menu);
+    if (!looksLikeShareMenu) {
+      log("menu appeared but does not look like share menu", { pendingFresh });
+      return;
+    }
+
+    menu.setAttribute(MENU_ITEM_MARK, "1");
+    shareMenuPending = false;
+    const tweetId = lastClickedTweetId;
+    log("injecting into menu", { tweetId });
+    injectWhenReady(menu, tweetId);
+  }
+
+  function sniffShareMenu(menu) {
+    const text = (menu.textContent || "").toLowerCase();
+    return /(copy link|send via|share post|share tweet|bookmark|add tweet to bookmarks|repost via)/i.test(text);
+  }
+
+  function injectWhenReady(menu, tweetId) {
+    const attempt = () => {
+      if (menu.querySelector(`[data-defense-emissary-item="1"]`)) return true;
+      const sibling = menu.querySelector('[role="menuitem"]');
+      if (!sibling) return false;
+      const item = buildMenuItem(sibling);
+      item.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        closeMenu(menu);
+        openPicker(tweetId);
+      });
+      const group = sibling.parentElement || menu;
+      group.appendChild(item);
+      log("menu item appended", { groupTag: group.tagName, siblings: group.children.length });
+      return true;
+    };
+
+    if (attempt()) return;
+
+    // Items may stream in lazily — observe the menu and retry as children change.
+    const inner = new MutationObserver(() => {
+      if (attempt()) inner.disconnect();
+    });
+    inner.observe(menu, { childList: true, subtree: true });
+    setTimeout(() => {
+      inner.disconnect();
+      if (!menu.querySelector(`[data-defense-emissary-item="1"]`)) {
+        log("gave up waiting for menu items to populate");
+      }
+    }, 2500);
+  }
+
+  function log(...args) {
+    if (DEBUG) console.log(TAG, ...args);
+  }
+
+  function buildMenuItem(sibling) {
+    let item;
+    if (sibling) {
+      // Clone an existing menu item to inherit Twitter's styling, then replace its label/icon.
+      item = sibling.cloneNode(true);
+      // Strip existing event handlers by re-creating from outerHTML wrapped in a div.
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = item.outerHTML;
+      item = wrapper.firstElementChild;
+      // Replace text content of the deepest text-bearing span.
+      const textNode = findDeepestTextSpan(item);
+      if (textNode) textNode.textContent = "Send to Discord";
+      // Replace the leading svg icon if present.
+      const svg = item.querySelector("svg");
+      if (svg && svg.parentElement) svg.parentElement.replaceChild(buildIcon(), svg);
+    } else {
+      item = document.createElement("div");
+      item.setAttribute("role", "menuitem");
+      item.className = "defense-emissary-menuitem";
+      const icon = buildIcon();
+      const label = document.createElement("span");
+      label.textContent = "Send to Discord";
+      item.appendChild(icon);
+      item.appendChild(label);
+    }
+    item.setAttribute("data-defense-emissary-item", "1");
+    item.style.cursor = "pointer";
+    return item;
+  }
+
+  function findDeepestTextSpan(root) {
+    const candidates = root.querySelectorAll("span");
+    let deepest = null;
+    let maxDepth = -1;
+    for (const span of candidates) {
+      if (!span.textContent || span.children.length > 0) continue;
+      let depth = 0;
+      let node = span;
+      while (node && node !== root) { depth++; node = node.parentElement; }
+      if (depth > maxDepth) { maxDepth = depth; deepest = span; }
+    }
+    return deepest;
+  }
+
+  function buildIcon() {
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "20");
+    svg.setAttribute("height", "20");
+    svg.setAttribute("fill", "currentColor");
+    svg.setAttribute("aria-hidden", "true");
+    const path = document.createElementNS(ns, "path");
+    path.setAttribute(
+      "d",
+      "M20.317 4.369A19.79 19.79 0 0 0 16.558 3l-.184.34a18.27 18.27 0 0 0-5.748 0L10.443 3a19.74 19.74 0 0 0-3.76 1.369C3.07 9.86 2.196 15.176 2.62 20.422a19.94 19.94 0 0 0 6.04 3.064l.484-.665a13.6 13.6 0 0 1-2.14-1.03c.18-.131.355-.268.523-.408 4.123 1.93 8.59 1.93 12.665 0 .17.14.345.277.524.408a13.6 13.6 0 0 1-2.14 1.03l.484.665a19.94 19.94 0 0 0 6.04-3.064c.516-6.069-.83-11.34-3.783-16.053zM8.62 15.764c-1.183 0-2.155-1.094-2.155-2.434 0-1.34.954-2.434 2.155-2.434 1.21 0 2.174 1.103 2.155 2.434 0 1.34-.954 2.434-2.155 2.434zm6.76 0c-1.183 0-2.155-1.094-2.155-2.434 0-1.34.954-2.434 2.155-2.434 1.21 0 2.174 1.103 2.155 2.434 0 1.34-.945 2.434-2.155 2.434z",
+    );
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function closeMenu(menu) {
+    // Click outside / dispatch Escape to dismiss the menu the natural way.
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    if (menu.parentElement) menu.style.display = "none";
+  }
+
+  // ---------- Picker modal ----------
+  let modalEl = null;
+
+  function openPicker(tweetId) {
+    closePicker();
+    modalEl = document.createElement("div");
+    modalEl.className = "de-modal-backdrop";
+    modalEl.innerHTML = `
+      <div class="de-modal" role="dialog" aria-label="Send to Discord">
+        <div class="de-modal-header">
+          <div class="de-title">Send to Discord</div>
+          <button class="de-close" aria-label="Close">×</button>
+        </div>
+        <div class="de-preview">Loading tweet…</div>
+        <div class="de-webhook-list">Loading webhooks…</div>
+        <div class="de-status" hidden></div>
+      </div>
+    `;
+    document.body.appendChild(modalEl);
+    modalEl.addEventListener("click", (e) => {
+      if (e.target === modalEl) closePicker();
+    });
+    modalEl.querySelector(".de-close").addEventListener("click", closePicker);
+
+    loadPreview(tweetId);
+    loadWebhooks(tweetId);
+
+    document.addEventListener("keydown", escListener, true);
+  }
+
+  function escListener(e) {
+    if (e.key === "Escape") closePicker();
+  }
+
+  function closePicker() {
+    if (modalEl && modalEl.parentElement) modalEl.parentElement.removeChild(modalEl);
+    modalEl = null;
+    document.removeEventListener("keydown", escListener, true);
+  }
+
+  async function loadPreview(tweetId) {
+    if (!modalEl) return;
+    const target = modalEl.querySelector(".de-preview");
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: "getPreview", tweetId });
+      if (!modalEl) return;
+      if (!resp || !resp.ok) {
+        target.textContent = "Couldn't load preview: " + (resp && resp.error ? resp.error : "unknown error");
+        return;
+      }
+      const p = resp.preview;
+      const meta = [];
+      if (p.photoCount) meta.push(`${p.photoCount} image${p.photoCount > 1 ? "s" : ""}`);
+      if (p.videoCount) meta.push(`${p.videoCount} video${p.videoCount > 1 ? "s" : ""}`);
+      const sourceTag = p.dateSource === "text" ? "from text" : "posted";
+      target.innerHTML = "";
+      const name = document.createElement("div");
+      name.className = "de-preview-name";
+      name.textContent = p.displayName;
+      const date = document.createElement("div");
+      date.className = "de-preview-meta";
+      date.textContent = `${p.dateLabel} (${sourceTag})${meta.length ? " · " + meta.join(", ") : ""}`;
+      const snippet = document.createElement("div");
+      snippet.className = "de-preview-snippet";
+      snippet.textContent = p.snippet || "(no text)";
+      target.appendChild(name);
+      target.appendChild(date);
+      target.appendChild(snippet);
+    } catch (e) {
+      target.textContent = "Couldn't load preview: " + (e.message || e);
+    }
+  }
+
+  async function loadWebhooks(tweetId) {
+    if (!modalEl) return;
+    const list = modalEl.querySelector(".de-webhook-list");
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: "getWebhooks" });
+      if (!modalEl) return;
+      const webhooks = (resp && resp.webhooks) || [];
+      list.innerHTML = "";
+      if (webhooks.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "de-empty";
+        empty.textContent = "No webhooks configured.";
+        const btn = document.createElement("button");
+        btn.className = "de-btn de-btn-primary";
+        btn.textContent = "Open options";
+        btn.addEventListener("click", () => chrome.runtime.sendMessage({ type: "openOptions" }));
+        list.appendChild(empty);
+        list.appendChild(btn);
+        return;
+      }
+      const heading = document.createElement("div");
+      heading.className = "de-webhook-heading";
+      heading.textContent = "Send to:";
+      list.appendChild(heading);
+      for (const w of webhooks) {
+        const btn = document.createElement("button");
+        btn.className = "de-btn de-webhook-btn";
+        btn.textContent = w.name;
+        btn.addEventListener("click", () => sendToWebhook(tweetId, w.id, btn));
+        list.appendChild(btn);
+      }
+    } catch (e) {
+      list.textContent = "Couldn't load webhooks: " + (e.message || e);
+    }
+  }
+
+  async function sendToWebhook(tweetId, webhookId, btn) {
+    if (!modalEl) return;
+    const status = modalEl.querySelector(".de-status");
+    const buttons = modalEl.querySelectorAll(".de-webhook-btn");
+    buttons.forEach((b) => (b.disabled = true));
+    btn.classList.add("de-sending");
+    status.hidden = false;
+    status.className = "de-status de-status-pending";
+    status.textContent = "Sending…";
+    try {
+      const resp = await chrome.runtime.sendMessage({ type: "send", tweetId, webhookId });
+      if (resp && resp.ok) {
+        status.className = "de-status de-status-ok";
+        status.textContent = "Sent ✓";
+        setTimeout(() => closePicker(), 800);
+      } else {
+        status.className = "de-status de-status-err";
+        status.textContent = "Failed: " + ((resp && resp.error) || "unknown error");
+        buttons.forEach((b) => (b.disabled = false));
+        btn.classList.remove("de-sending");
+      }
+    } catch (e) {
+      status.className = "de-status de-status-err";
+      status.textContent = "Failed: " + (e.message || e);
+      buttons.forEach((b) => (b.disabled = false));
+      btn.classList.remove("de-sending");
+    }
+  }
+})();

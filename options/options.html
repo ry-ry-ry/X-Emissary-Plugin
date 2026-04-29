@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Defense Emissary</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header class="header">
+      <h1>Defense Emissary</h1>
+      <p class="sub">Forward tweets to Discord channels.</p>
+    </header>
+
+    <section class="card">
+      <h2>Webhooks</h2>
+      <p class="muted">Add one webhook per Discord channel you want to send to. The names appear in the picker on Twitter.</p>
+      <div id="webhook-list" class="webhook-list"></div>
+
+      <details class="add-webhook">
+        <summary>Add a webhook</summary>
+        <form id="add-form" class="form">
+          <label>
+            <span>Name</span>
+            <input id="add-name" type="text" placeholder="e.g. News, Memes" required maxlength="60" />
+          </label>
+          <label>
+            <span>Discord webhook URL</span>
+            <input id="add-url" type="url" placeholder="https://discord.com/api/webhooks/…" required pattern="https://(discord|discordapp)\.com/api/webhooks/.*" />
+          </label>
+          <button class="btn primary" type="submit">Add</button>
+        </form>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>Settings</h2>
+      <form id="settings-form" class="form">
+        <label>
+          <span>Date format</span>
+          <select id="date-format">
+            <option value="long">Long — April 29, 2026</option>
+            <option value="short">Short — Apr 29, 2026</option>
+            <option value="iso">ISO — 2026-04-29</option>
+          </select>
+        </label>
+        <label>
+          <span>Discord upload size limit (MB)</span>
+          <input id="size-cap" type="number" min="1" max="500" step="1" required />
+          <small class="muted">Match your current Discord tier: 10 MB free, 25 MB Nitro Basic, 50 MB Nitro, 500 MB Nitro Server Boost. Images larger than this are downscaled in-browser; videos try lower-bitrate variants before falling back to a link.</small>
+        </label>
+        <button class="btn primary" type="submit">Save settings</button>
+        <span id="settings-status" class="status" hidden></span>
+      </form>
+    </section>
+  </main>
+
+  <template id="webhook-row-template">
+    <div class="webhook-row">
+      <div class="webhook-main">
+        <div class="webhook-name"></div>
+        <div class="webhook-url muted"></div>
+      </div>
+      <div class="webhook-actions">
+        <button class="btn small" data-action="reveal">Show URL</button>
+        <button class="btn small" data-action="test">Test</button>
+        <button class="btn small" data-action="rename">Rename</button>
+        <button class="btn small danger" data-action="delete">Delete</button>
+      </div>
+      <div class="webhook-status status" hidden></div>
+    </div>
+  </template>
+
+  <script src="options.js" type="module"></script>
+</body>
+</html>
