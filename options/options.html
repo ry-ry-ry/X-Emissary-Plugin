@@ -50,6 +50,13 @@
           <input id="size-cap" type="number" min="1" max="500" step="1" required />
           <small class="muted">Match your current Discord tier: 10 MB free, 25 MB Nitro Basic, 50 MB Nitro, 500 MB Nitro Server Boost. Images larger than this are downscaled in-browser; videos try lower-bitrate variants before falling back to a link.</small>
         </label>
+        <label class="checkbox-row">
+          <input id="debug" type="checkbox" />
+          <span>
+            Debug logging
+            <small class="muted">Logs diagnostic detail to the browser console (page console for the share menu, service-worker console for tweet fetching). Leave off for normal use; turn on when troubleshooting.</small>
+          </span>
+        </label>
         <button class="btn primary" type="submit">Save settings</button>
         <span id="settings-status" class="status" hidden></span>
       </form>

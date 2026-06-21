@@ -1,7 +1,23 @@
 (() => {
   const MENU_ITEM_MARK = "data-defense-emissary";
   const TAG = "[DefenseEmissary]";
-  const DEBUG = false;
+
+  // Debug logging is controlled by the "debug" setting in the options page.
+  // Loaded async from storage; defaults off until loaded, and updates live when toggled.
+  let DEBUG = false;
+  try {
+    chrome.storage.sync.get("settings", ({ settings }) => {
+      DEBUG = !!(settings && settings.debug);
+      if (DEBUG) log("debug logging enabled");
+    });
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === "sync" && changes.settings) {
+        DEBUG = !!(changes.settings.newValue && changes.settings.newValue.debug);
+      }
+    });
+  } catch (e) {
+    /* storage unavailable — stay off */
+  }
 
   let lastClickedTweetId = null;
   let lastClickedAt = 0;
@@ -51,10 +67,60 @@
   );
 
   function findTweetIdInArticle(article) {
-    const links = article.querySelectorAll('a[href*="/status/"]');
-    for (const a of links) {
+    const links = Array.from(article.querySelectorAll('a[href*="/status/"]'));
+
+    const idFrom = (a) => {
       const m = a.getAttribute("href").match(/\/status\/(\d{5,})/);
-      if (m) return m[1];
+      return m ? m[1] : null;
+    };
+
+    if (DEBUG) {
+      log(
+        "links in article:",
+        links.map((a) => ({
+          href: a.getAttribute("href"),
+          hasTime: !!a.querySelector("time"),
+          inRoleLink: !!a.closest('[role="link"]'),
+          // climb ancestors looking for the quote-card wrapper, whatever it is now
+          ancestorRoleLink: (() => {
+            let n = a.parentElement, depth = 0, found = -1;
+            while (n && n !== article && depth < 40) {
+              if (n.getAttribute && n.getAttribute("role") === "link") { found = depth; break; }
+              n = n.parentElement; depth++;
+            }
+            return found;
+          })(),
+        })),
+      );
+    }
+
+    // The embedded quoted tweet is rendered inside a div[role="link"] card.
+    // Links inside it point to the *quoted* tweet, not the one being shared — skip them.
+    // NOTE: X puts role="link" on the anchor elements themselves, so we must check
+    // ANCESTORS only (start from parentElement) — otherwise every link looks "in a card".
+    const isInQuoteCard = (el) =>
+      el.parentElement ? el.parentElement.closest('[role="link"]') !== null : false;
+
+    // 1. Preferred: the timestamp anchor (wraps a <time>) that is NOT inside the quote card.
+    for (const a of links) {
+      if (a.querySelector("time") && !isInQuoteCard(a)) {
+        const id = idFrom(a);
+        if (id) { log("picked id via timestamp-anchor", id); return id; }
+      }
+    }
+
+    // 2. Fallback: any /status/ link outside the quote card.
+    for (const a of links) {
+      if (!isInQuoteCard(a)) {
+        const id = idFrom(a);
+        if (id) { log("picked id via non-quote link", id); return id; }
+      }
+    }
+
+    // 3. Last resort: first /status/ link of any kind (preserves prior behaviour).
+    for (const a of links) {
+      const id = idFrom(a);
+      if (id) { log("picked id via last-resort", id); return id; }
     }
     return null;
   }

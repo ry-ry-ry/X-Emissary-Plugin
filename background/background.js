@@ -30,7 +30,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 async function buildPreview(tweetId) {
   const settings = await getSettings();
-  const tweet = await getTweet(tweetId);
+  const tweet = await getTweet(tweetId, settings.debug);
   const date = extractDate(tweet.text, tweet.postedIso, settings.dateFormat);
   return {
     displayName: tweet.displayName,
@@ -50,7 +50,7 @@ async function sendTweet(tweetId, webhookId) {
 
   const capBytes = Math.max(1, Math.floor(settings.sizeCapMb * 1024 * 1024));
 
-  const tweet = await getTweet(tweetId);
+  const tweet = await getTweet(tweetId, settings.debug);
   const date = extractDate(tweet.text, tweet.postedIso, settings.dateFormat);
 
   const header = `**${tweet.displayName}** — ${date.label}${date.source === "posted" ? " (posted)" : ""}`;

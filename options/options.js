@@ -10,6 +10,7 @@ const addUrl = document.getElementById("add-url");
 const settingsForm = document.getElementById("settings-form");
 const dateFormat = document.getElementById("date-format");
 const sizeCap = document.getElementById("size-cap");
+const debug = document.getElementById("debug");
 const settingsStatus = document.getElementById("settings-status");
 
 addForm.addEventListener("submit", async (e) => {
@@ -29,7 +30,7 @@ addForm.addEventListener("submit", async (e) => {
 settingsForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const cap = Math.max(1, Math.min(500, parseInt(sizeCap.value, 10) || 10));
-  await setSettings({ dateFormat: dateFormat.value, sizeCapMb: cap });
+  await setSettings({ dateFormat: dateFormat.value, sizeCapMb: cap, debug: debug.checked });
   showStatus(settingsStatus, "Saved", "ok");
 });
 
@@ -126,6 +127,7 @@ async function init() {
   const settings = await getSettings();
   dateFormat.value = settings.dateFormat;
   sizeCap.value = settings.sizeCapMb;
+  debug.checked = !!settings.debug;
   await renderList();
 }
 

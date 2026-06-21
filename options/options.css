@@ -115,6 +115,20 @@ html, body {
   font-weight: 500;
 }
 .form label > span { font-size: 13px; }
+
+.form label.checkbox-row {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+.form label.checkbox-row > input {
+  width: auto;
+  margin-top: 2px;
+  flex: none;
+}
+.form label.checkbox-row > span { display: flex; flex-direction: column; gap: 4px; }
+.form label.checkbox-row small { font-weight: 400; }
+
 .form input, .form select {
   padding: 9px 11px;
   font-size: 14px;
