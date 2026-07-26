@@ -11,6 +11,7 @@
     "https://api.fxtwitter.com/*",
     "https://*.twimg.com/*",
     "https://video.twimg.com/*",
+    "https://translate.googleapis.com/*",
     "https://discord.com/api/webhooks/*",
     "https://discordapp.com/api/webhooks/*"
   ],

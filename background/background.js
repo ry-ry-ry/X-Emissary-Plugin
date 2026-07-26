@@ -3,6 +3,7 @@ import { getTweet } from "../lib/fxtwitter.js";
 import { extractDate } from "../lib/dateParser.js";
 import { shrinkImage } from "../lib/mediaShrink.js";
 import { postToWebhook, truncateContent, MAX_ATTACHMENTS } from "../lib/discord.js";
+import { translateText, languageName } from "../lib/translate.js";
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
@@ -15,7 +16,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         chrome.runtime.openOptionsPage();
         sendResponse({ ok: true });
       } else if (msg.type === "send") {
-        sendResponse(await sendTweet(msg.tweetId, msg.webhookId));
+        sendResponse(await sendTweet(msg.tweetId, msg.webhookId, !!msg.translate));
       } else if (msg.type === "testWebhook") {
         sendResponse(await testWebhook(msg.webhookUrl));
       } else {
@@ -40,10 +41,11 @@ async function buildPreview(tweetId) {
     photoCount: tweet.photos.length,
     videoCount: tweet.videos.length,
     url: tweet.url,
+    lang: tweet.lang || "",
   };
 }
 
-async function sendTweet(tweetId, webhookId) {
+async function sendTweet(tweetId, webhookId, translate = false) {
   const [webhooks, settings] = await Promise.all([getWebhooks(), getSettings()]);
   const webhook = webhooks.find((w) => w.id === webhookId);
   if (!webhook) return { ok: false, error: "Webhook not found" };
@@ -53,8 +55,25 @@ async function sendTweet(tweetId, webhookId) {
   const tweet = await getTweet(tweetId, settings.debug);
   const date = extractDate(tweet.text, tweet.postedIso, settings.dateFormat);
 
+  // Auto-translate: replace the tweet text with its English translation, noting the
+  // detected source language. Skipped when the post is already English or empty.
+  let bodyText = tweet.text;
+  let translationNote = "";
+  if (translate && tweet.text.trim() && tweet.lang !== "en") {
+    try {
+      const { text: translated, sourceLang } = await translateText(tweet.text, "en", settings.debug);
+      if (translated && translated.trim() && translated.trim() !== tweet.text.trim()) {
+        bodyText = translated;
+        translationNote = `\n*— translated from ${languageName(sourceLang || tweet.lang)}*`;
+      }
+    } catch (e) {
+      // Non-fatal: fall back to the original text with a small note.
+      translationNote = `\n*— translation unavailable (${e.message || e})*`;
+    }
+  }
+
   const header = `**${tweet.displayName}** — ${date.label}${date.source === "posted" ? " (posted)" : ""}`;
-  const tweetBody = tweet.text ? `\n\n${tweet.text}` : "";
+  const tweetBody = bodyText ? `\n\n${bodyText}${translationNote}` : "";
   const link = `\n\n<${tweet.url}>`;
 
   const linkOnlyVideos = [];
@@ -87,10 +106,14 @@ async function sendTweet(tweetId, webhookId) {
       break;
     }
     const video = tweet.videos[v];
+    // FxTwitter's v1 media entries expose only a single top-level `url`; the per-bitrate
+    // `formats` list is not always present (notably for GIFs), so fall back to it.
+    const candidates = video.formats.map((f) => f.url);
+    if (video.fallbackUrl && !candidates.includes(video.fallbackUrl)) candidates.push(video.fallbackUrl);
     let attached = false;
-    for (const fmt of video.formats) {
+    for (const src of candidates) {
       try {
-        const res = await fetch(fmt.url);
+        const res = await fetch(src);
         if (!res.ok) continue;
         const blob = await res.blob();
         if (blob.size <= capBytes) {

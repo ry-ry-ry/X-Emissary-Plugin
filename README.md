@@ -9,6 +9,7 @@ A Microsoft Edge / Chromium browser extension that adds a **Send to Discord** it
 - **Approximate date**: parsed from the tweet text first (ISO, slash, "April 30, 2026", "yesterday", "in 3 days", …); falls back to the tweet's posted timestamp when no date is mentioned.
 - **Images** are uploaded as native Discord attachments (inline gallery). Anything over your size threshold is downscaled in-browser via canvas re-encoding.
 - **Videos** are uploaded as MP4 attachments at the highest bitrate that fits under your size threshold; if no variant fits, the message gets a link to the original tweet instead.
+- **Auto-translate** (optional, free): an "Auto-translate to English" checkbox on the send popup. When ticked, the tweet text is replaced with its English translation (the detected source language is noted). Uses Google's free unofficial translate endpoint — no API key, no budget. Defaults on automatically when the post isn't already English.
 - All tweet content sourced from the [FxEmbed/FxTwitter](https://github.com/FxEmbed/FxEmbed) public API — no Twitter API keys, no scraping fragility for text/media. DOM scrape is the fallback only.
 
 ## Install (unpacked)

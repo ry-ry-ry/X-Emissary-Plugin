@@ -77,6 +77,23 @@
   opacity: 0.65;
   margin-bottom: 8px;
 }
+.de-translate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+.de-translate input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #1d9bf0;
+  flex: none;
+}
+
 .de-webhook-list {
   display: flex;
   flex-direction: column;

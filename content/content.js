@@ -288,6 +288,10 @@
           <button class="de-close" aria-label="Close">×</button>
         </div>
         <div class="de-preview">Loading tweet…</div>
+        <label class="de-translate">
+          <input type="checkbox" class="de-translate-cb" />
+          <span>Auto-translate to English</span>
+        </label>
         <div class="de-webhook-list">Loading webhooks…</div>
         <div class="de-status" hidden></div>
       </div>
@@ -342,9 +346,30 @@
       target.appendChild(name);
       target.appendChild(date);
       target.appendChild(snippet);
+
+      // Default the translate checkbox on when the post isn't already English,
+      // and label it with the detected source language.
+      const cb = modalEl.querySelector(".de-translate-cb");
+      const cbLabel = modalEl.querySelector(".de-translate span");
+      if (cb && p.lang && p.lang !== "en") {
+        cb.checked = true;
+        if (cbLabel) cbLabel.textContent = `Auto-translate to English (from ${languageName(p.lang)})`;
+      }
     } catch (e) {
       target.textContent = "Couldn't load preview: " + (e.message || e);
     }
+  }
+
+  // Minimal language-code → name map for the checkbox label (mirrors lib/translate.js).
+  function languageName(code) {
+    const names = {
+      ar: "Arabic", de: "German", es: "Spanish", fa: "Persian", fr: "French",
+      hi: "Hindi", id: "Indonesian", it: "Italian", ja: "Japanese", ko: "Korean",
+      nl: "Dutch", pl: "Polish", pt: "Portuguese", ru: "Russian", th: "Thai",
+      tr: "Turkish", uk: "Ukrainian", vi: "Vietnamese", zh: "Chinese",
+    };
+    if (!code) return "another language";
+    return names[code] || names[code.split("-")[0]] || code;
   }
 
   async function loadWebhooks(tweetId) {
@@ -375,7 +400,7 @@
         const btn = document.createElement("button");
         btn.className = "de-btn de-webhook-btn";
         btn.textContent = w.name;
-        btn.addEventListener("click", () => sendToWebhook(tweetId, w.id, btn));
+        btn.addEventListener("click", () => sendToWebhook(tweetId, w.id, btn, getTranslateChecked()));
         list.appendChild(btn);
       }
     } catch (e) {
@@ -383,7 +408,12 @@
     }
   }
 
-  async function sendToWebhook(tweetId, webhookId, btn) {
+  function getTranslateChecked() {
+    const cb = modalEl && modalEl.querySelector(".de-translate-cb");
+    return !!(cb && cb.checked);
+  }
+
+  async function sendToWebhook(tweetId, webhookId, btn, translate) {
     if (!modalEl) return;
     const status = modalEl.querySelector(".de-status");
     const buttons = modalEl.querySelectorAll(".de-webhook-btn");
@@ -391,9 +421,9 @@
     btn.classList.add("de-sending");
     status.hidden = false;
     status.className = "de-status de-status-pending";
-    status.textContent = "Sending…";
+    status.textContent = translate ? "Translating & sending…" : "Sending…";
     try {
-      const resp = await chrome.runtime.sendMessage({ type: "send", tweetId, webhookId });
+      const resp = await chrome.runtime.sendMessage({ type: "send", tweetId, webhookId, translate });
       if (resp && resp.ok) {
         status.className = "de-status de-status-ok";
         status.textContent = "Sent ✓";
