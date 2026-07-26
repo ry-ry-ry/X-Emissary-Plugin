@@ -1,16 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "Defense Emissary",
-  "version": "0.1.0",
-  "description": "Forward tweets to Discord channels from Twitter/X's share menu.",
+  "name": "X Emissary",
+  "short_name": "X Emissary",
+  "version": "1.0.0",
+  "description": "Send any post on X to your Discord channels — text, images, video and optional translation — right from the share menu.",
   "permissions": ["storage"],
   "host_permissions": [
     "https://twitter.com/*",
     "https://x.com/*",
-    "https://mobile.twitter.com/*",
     "https://api.fxtwitter.com/*",
     "https://*.twimg.com/*",
-    "https://video.twimg.com/*",
     "https://translate.googleapis.com/*",
     "https://discord.com/api/webhooks/*",
     "https://discordapp.com/api/webhooks/*"
@@ -19,8 +18,7 @@
     {
       "matches": [
         "https://twitter.com/*",
-        "https://x.com/*",
-        "https://mobile.twitter.com/*"
+        "https://x.com/*"
       ],
       "js": ["content/content.js"],
       "css": ["content/content.css"],
@@ -33,7 +31,7 @@
   },
   "options_page": "options/options.html",
   "action": {
-    "default_title": "Defense Emissary — options",
+    "default_title": "X Emissary — options",
     "default_popup": "options/options.html"
   },
   "icons": {

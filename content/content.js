@@ -1,6 +1,6 @@
 (() => {
-  const MENU_ITEM_MARK = "data-defense-emissary";
-  const TAG = "[DefenseEmissary]";
+  const MENU_ITEM_MARK = "data-x-emissary";
+  const TAG = "[XEmissary]";
 
   // Debug logging is controlled by the "debug" setting in the options page.
   // Loaded async from storage; defaults off until loaded, and updates live when toggled.
@@ -172,7 +172,7 @@
 
   function injectWhenReady(menu, tweetId) {
     const attempt = () => {
-      if (menu.querySelector(`[data-defense-emissary-item="1"]`)) return true;
+      if (menu.querySelector(`[data-x-emissary-item="1"]`)) return true;
       const sibling = menu.querySelector('[role="menuitem"]');
       if (!sibling) return false;
       const item = buildMenuItem(sibling);
@@ -197,7 +197,7 @@
     inner.observe(menu, { childList: true, subtree: true });
     setTimeout(() => {
       inner.disconnect();
-      if (!menu.querySelector(`[data-defense-emissary-item="1"]`)) {
+      if (!menu.querySelector(`[data-x-emissary-item="1"]`)) {
         log("gave up waiting for menu items to populate");
       }
     }, 2500);
@@ -225,14 +225,14 @@
     } else {
       item = document.createElement("div");
       item.setAttribute("role", "menuitem");
-      item.className = "defense-emissary-menuitem";
+      item.className = "x-emissary-menuitem";
       const icon = buildIcon();
       const label = document.createElement("span");
       label.textContent = "Send to Discord";
       item.appendChild(icon);
       item.appendChild(label);
     }
-    item.setAttribute("data-defense-emissary-item", "1");
+    item.setAttribute("data-x-emissary-item", "1");
     item.style.cursor = "pointer";
     return item;
   }
@@ -280,27 +280,27 @@
   function openPicker(tweetId) {
     closePicker();
     modalEl = document.createElement("div");
-    modalEl.className = "de-modal-backdrop";
+    modalEl.className = "xe-modal-backdrop";
     modalEl.innerHTML = `
-      <div class="de-modal" role="dialog" aria-label="Send to Discord">
-        <div class="de-modal-header">
-          <div class="de-title">Send to Discord</div>
-          <button class="de-close" aria-label="Close">×</button>
+      <div class="xe-modal" role="dialog" aria-label="Send to Discord">
+        <div class="xe-modal-header">
+          <div class="xe-title">Send to Discord</div>
+          <button class="xe-close" aria-label="Close">×</button>
         </div>
-        <div class="de-preview">Loading tweet…</div>
-        <label class="de-translate">
-          <input type="checkbox" class="de-translate-cb" />
+        <div class="xe-preview">Loading post…</div>
+        <label class="xe-translate">
+          <input type="checkbox" class="xe-translate-cb" />
           <span>Auto-translate to English</span>
         </label>
-        <div class="de-webhook-list">Loading webhooks…</div>
-        <div class="de-status" hidden></div>
+        <div class="xe-webhook-list">Loading webhooks…</div>
+        <div class="xe-status" hidden></div>
       </div>
     `;
     document.body.appendChild(modalEl);
     modalEl.addEventListener("click", (e) => {
       if (e.target === modalEl) closePicker();
     });
-    modalEl.querySelector(".de-close").addEventListener("click", closePicker);
+    modalEl.querySelector(".xe-close").addEventListener("click", closePicker);
 
     loadPreview(tweetId);
     loadWebhooks(tweetId);
@@ -320,7 +320,7 @@
 
   async function loadPreview(tweetId) {
     if (!modalEl) return;
-    const target = modalEl.querySelector(".de-preview");
+    const target = modalEl.querySelector(".xe-preview");
     try {
       const resp = await chrome.runtime.sendMessage({ type: "getPreview", tweetId });
       if (!modalEl) return;
@@ -335,13 +335,13 @@
       const sourceTag = p.dateSource === "text" ? "from text" : "posted";
       target.innerHTML = "";
       const name = document.createElement("div");
-      name.className = "de-preview-name";
+      name.className = "xe-preview-name";
       name.textContent = p.displayName;
       const date = document.createElement("div");
-      date.className = "de-preview-meta";
+      date.className = "xe-preview-meta";
       date.textContent = `${p.dateLabel} (${sourceTag})${meta.length ? " · " + meta.join(", ") : ""}`;
       const snippet = document.createElement("div");
-      snippet.className = "de-preview-snippet";
+      snippet.className = "xe-preview-snippet";
       snippet.textContent = p.snippet || "(no text)";
       target.appendChild(name);
       target.appendChild(date);
@@ -349,8 +349,8 @@
 
       // Default the translate checkbox on when the post isn't already English,
       // and label it with the detected source language.
-      const cb = modalEl.querySelector(".de-translate-cb");
-      const cbLabel = modalEl.querySelector(".de-translate span");
+      const cb = modalEl.querySelector(".xe-translate-cb");
+      const cbLabel = modalEl.querySelector(".xe-translate span");
       if (cb && p.lang && p.lang !== "en") {
         cb.checked = true;
         if (cbLabel) cbLabel.textContent = `Auto-translate to English (from ${languageName(p.lang)})`;
@@ -374,7 +374,7 @@
 
   async function loadWebhooks(tweetId) {
     if (!modalEl) return;
-    const list = modalEl.querySelector(".de-webhook-list");
+    const list = modalEl.querySelector(".xe-webhook-list");
     try {
       const resp = await chrome.runtime.sendMessage({ type: "getWebhooks" });
       if (!modalEl) return;
@@ -382,10 +382,10 @@
       list.innerHTML = "";
       if (webhooks.length === 0) {
         const empty = document.createElement("div");
-        empty.className = "de-empty";
+        empty.className = "xe-empty";
         empty.textContent = "No webhooks configured.";
         const btn = document.createElement("button");
-        btn.className = "de-btn de-btn-primary";
+        btn.className = "xe-btn xe-btn-primary";
         btn.textContent = "Open options";
         btn.addEventListener("click", () => chrome.runtime.sendMessage({ type: "openOptions" }));
         list.appendChild(empty);
@@ -393,12 +393,12 @@
         return;
       }
       const heading = document.createElement("div");
-      heading.className = "de-webhook-heading";
+      heading.className = "xe-webhook-heading";
       heading.textContent = "Send to:";
       list.appendChild(heading);
       for (const w of webhooks) {
         const btn = document.createElement("button");
-        btn.className = "de-btn de-webhook-btn";
+        btn.className = "xe-btn xe-webhook-btn";
         btn.textContent = w.name;
         btn.addEventListener("click", () => sendToWebhook(tweetId, w.id, btn, getTranslateChecked()));
         list.appendChild(btn);
@@ -409,36 +409,36 @@
   }
 
   function getTranslateChecked() {
-    const cb = modalEl && modalEl.querySelector(".de-translate-cb");
+    const cb = modalEl && modalEl.querySelector(".xe-translate-cb");
     return !!(cb && cb.checked);
   }
 
   async function sendToWebhook(tweetId, webhookId, btn, translate) {
     if (!modalEl) return;
-    const status = modalEl.querySelector(".de-status");
-    const buttons = modalEl.querySelectorAll(".de-webhook-btn");
+    const status = modalEl.querySelector(".xe-status");
+    const buttons = modalEl.querySelectorAll(".xe-webhook-btn");
     buttons.forEach((b) => (b.disabled = true));
-    btn.classList.add("de-sending");
+    btn.classList.add("xe-sending");
     status.hidden = false;
-    status.className = "de-status de-status-pending";
+    status.className = "xe-status xe-status-pending";
     status.textContent = translate ? "Translating & sending…" : "Sending…";
     try {
       const resp = await chrome.runtime.sendMessage({ type: "send", tweetId, webhookId, translate });
       if (resp && resp.ok) {
-        status.className = "de-status de-status-ok";
+        status.className = "xe-status xe-status-ok";
         status.textContent = "Sent ✓";
         setTimeout(() => closePicker(), 800);
       } else {
-        status.className = "de-status de-status-err";
+        status.className = "xe-status xe-status-err";
         status.textContent = "Failed: " + ((resp && resp.error) || "unknown error");
         buttons.forEach((b) => (b.disabled = false));
-        btn.classList.remove("de-sending");
+        btn.classList.remove("xe-sending");
       }
     } catch (e) {
-      status.className = "de-status de-status-err";
+      status.className = "xe-status xe-status-err";
       status.textContent = "Failed: " + (e.message || e);
       buttons.forEach((b) => (b.disabled = false));
-      btn.classList.remove("de-sending");
+      btn.classList.remove("xe-sending");
     }
   }
 })();

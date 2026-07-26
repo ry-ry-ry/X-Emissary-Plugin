@@ -151,7 +151,7 @@ async function sendTweet(tweetId, webhookId, translate = false) {
 async function testWebhook(webhookUrl) {
   const result = await postToWebhook({
     webhookUrl,
-    content: "Defense Emissary connection test ✓",
+    content: "X Emissary connection test ✓",
   });
   if (!result.ok) return { ok: false, error: `Discord ${result.status}: ${result.body || "(no body)"}` };
   return { ok: true };

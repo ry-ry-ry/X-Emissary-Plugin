@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Defense Emissary</title>
+  <title>X Emissary — options</title>
   <link rel="stylesheet" href="options.css" />
 </head>
 <body>
   <main class="wrap">
     <header class="header">
-      <h1>Defense Emissary</h1>
-      <p class="sub">Forward tweets to Discord channels.</p>
+      <h1>X Emissary</h1>
+      <p class="sub">Send posts from X straight to your Discord channels.</p>
     </header>
 
     <section class="card">
       <h2>Webhooks</h2>
-      <p class="muted">Add one webhook per Discord channel you want to send to. The names appear in the picker on Twitter.</p>
+      <p class="muted">Add one webhook per Discord channel you want to send to. The names appear in the picker on X.</p>
       <div id="webhook-list" class="webhook-list"></div>
 
       <details class="add-webhook">
@@ -54,7 +54,7 @@
           <input id="debug" type="checkbox" />
           <span>
             Debug logging
-            <small class="muted">Logs diagnostic detail to the browser console (page console for the share menu, service-worker console for tweet fetching). Leave off for normal use; turn on when troubleshooting.</small>
+            <small class="muted">Logs diagnostic detail to the browser console (page console for the share menu, service-worker console for post fetching). Leave off for normal use; turn on when troubleshooting.</small>
           </span>
         </label>
         <button class="btn primary" type="submit">Save settings</button>

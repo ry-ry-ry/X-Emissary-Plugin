@@ -1,0 +1,11 @@
+# Store packages
+dist/
+*.zip
+
+# Extension signing keys — never commit
+*.pem
+
+# OS cruft
+.DS_Store
+Thumbs.db
+STORE_LISTING.md

@@ -1,4 +1,4 @@
-.defense-emissary-menuitem {
+.x-emissary-menuitem {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -7,11 +7,11 @@
   color: inherit;
   background: transparent;
 }
-.defense-emissary-menuitem:hover {
+.x-emissary-menuitem:hover {
   background: rgba(127, 127, 127, 0.12);
 }
 
-.de-modal-backdrop {
+.xe-modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
@@ -22,7 +22,7 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
 
-.de-modal {
+.xe-modal {
   background: #15202b;
   color: #e7e9ea;
   width: min(440px, calc(100vw - 32px));
@@ -33,20 +33,20 @@
 }
 
 @media (prefers-color-scheme: light) {
-  .de-modal { background: #ffffff; color: #0f1419; border-color: rgba(0,0,0,0.08); }
+  .xe-modal { background: #ffffff; color: #0f1419; border-color: rgba(0,0,0,0.08); }
 }
 
-.de-modal-header {
+.xe-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
 }
-.de-title {
+.xe-title {
   font-weight: 700;
   font-size: 18px;
 }
-.de-close {
+.xe-close {
   background: transparent;
   border: 0;
   color: inherit;
@@ -56,9 +56,9 @@
   padding: 4px 8px;
   border-radius: 8px;
 }
-.de-close:hover { background: rgba(127,127,127,0.15); }
+.xe-close:hover { background: rgba(127,127,127,0.15); }
 
-.de-preview {
+.xe-preview {
   background: rgba(127,127,127,0.08);
   border-radius: 10px;
   padding: 12px;
@@ -66,18 +66,18 @@
   font-size: 14px;
   line-height: 1.4;
 }
-.de-preview-name { font-weight: 700; }
-.de-preview-meta { opacity: 0.75; font-size: 12px; margin: 2px 0 6px; }
-.de-preview-snippet { white-space: pre-wrap; word-break: break-word; }
+.xe-preview-name { font-weight: 700; }
+.xe-preview-meta { opacity: 0.75; font-size: 12px; margin: 2px 0 6px; }
+.xe-preview-snippet { white-space: pre-wrap; word-break: break-word; }
 
-.de-webhook-heading {
+.xe-webhook-heading {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   opacity: 0.65;
   margin-bottom: 8px;
 }
-.de-translate {
+.xe-translate {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -86,7 +86,7 @@
   cursor: pointer;
   user-select: none;
 }
-.de-translate input {
+.xe-translate input {
   width: 16px;
   height: 16px;
   cursor: pointer;
@@ -94,13 +94,13 @@
   flex: none;
 }
 
-.de-webhook-list {
+.xe-webhook-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.de-btn {
+.xe-btn {
   font: inherit;
   padding: 10px 14px;
   border-radius: 9999px;
@@ -110,36 +110,36 @@
   cursor: pointer;
   text-align: left;
 }
-.de-btn:hover { background: rgba(255,255,255,0.12); }
-.de-btn:disabled { opacity: 0.55; cursor: default; }
+.xe-btn:hover { background: rgba(255,255,255,0.12); }
+.xe-btn:disabled { opacity: 0.55; cursor: default; }
 @media (prefers-color-scheme: light) {
-  .de-btn { border-color: rgba(0,0,0,0.12); background: rgba(0,0,0,0.04); }
-  .de-btn:hover { background: rgba(0,0,0,0.08); }
+  .xe-btn { border-color: rgba(0,0,0,0.12); background: rgba(0,0,0,0.04); }
+  .xe-btn:hover { background: rgba(0,0,0,0.08); }
 }
 
-.de-btn-primary {
+.xe-btn-primary {
   background: #1d9bf0;
   color: #ffffff;
   border-color: transparent;
   text-align: center;
 }
-.de-btn-primary:hover { background: #1a8cd8; }
+.xe-btn-primary:hover { background: #1a8cd8; }
 
-.de-empty {
+.xe-empty {
   padding: 8px 0;
   opacity: 0.75;
   font-size: 14px;
   margin-bottom: 8px;
 }
 
-.de-status {
+.xe-status {
   margin-top: 12px;
   padding: 10px 12px;
   border-radius: 10px;
   font-size: 13px;
 }
-.de-status-pending { background: rgba(127,127,127,0.15); }
-.de-status-ok { background: rgba(0, 186, 124, 0.18); }
-.de-status-err { background: rgba(244, 33, 46, 0.18); white-space: pre-wrap; word-break: break-word; }
+.xe-status-pending { background: rgba(127,127,127,0.15); }
+.xe-status-ok { background: rgba(0, 186, 124, 0.18); }
+.xe-status-err { background: rgba(244, 33, 46, 0.18); white-space: pre-wrap; word-break: break-word; }
 
-.de-sending { opacity: 0.7; }
+.xe-sending { opacity: 0.7; }
