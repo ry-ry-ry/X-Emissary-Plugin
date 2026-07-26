@@ -71,6 +71,19 @@ X Emissary has no backend and collects nothing. Your webhook URLs stay in your b
 - X's DOM is generated and its class names rotate, so share-menu detection uses `role="menu"` semantics plus a content heuristic. If X materially changes the menu wording, `isShareMenu` in [content/content.js](content/content.js) is the place to adjust.
 - Turn on **Debug logging** in options when troubleshooting: share-menu detail goes to the page console, post fetching to the service-worker console.
 
+## Credits
+
+X Emissary is an independent project, built on top of services run by other people. None of the following are affiliated with this extension, and none of them sponsor or endorse it.
+
+| Service | What it does here |
+| --- | --- |
+| [X](https://x.com) | The platform the posts come from. X Emissary adds an item to its share menu and reads the ID of the post you clicked. |
+| [Discord](https://discord.com) | The destination. Messages and media are delivered through Discord's webhook API. |
+| [FxTwitter / FxEmbed](https://github.com/FxEmbed/FxEmbed) | The open-source public API that supplies each post's text, author and media URLs. Used under its own terms — thanks to its maintainers, who do the hard part. |
+| [Google Translate](https://translate.google.com) | Powers the optional "Auto-translate to English" checkbox, via Google's public translate endpoint. Contacted only when you tick the box. |
+
+"X" is a trademark of X Corp. "Discord" is a trademark of Discord Inc. "Google" and "Google Translate" are trademarks of Google LLC. All other trademarks are the property of their respective owners. Their use here is descriptive — to say what this extension interoperates with — and does not imply any endorsement.
+
 ## Licence
 
 _TODO: add a licence before publishing (MIT is the usual choice for this kind of extension)._
