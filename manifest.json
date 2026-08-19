@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "X Emissary",
   "short_name": "X Emissary",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Send any post on X to your Discord channels — text, images, video and optional translation — right from the share menu.",
   "permissions": ["storage"],
   "host_permissions": [

@@ -2,8 +2,12 @@ import { getWebhooks, getSettings } from "../lib/storage.js";
 import { getTweet } from "../lib/fxtwitter.js";
 import { extractDate } from "../lib/dateParser.js";
 import { shrinkImage } from "../lib/mediaShrink.js";
-import { postToWebhook, truncateContent, MAX_ATTACHMENTS } from "../lib/discord.js";
+import { postToWebhook, truncateContent, sanitizeUsername, MAX_ATTACHMENTS } from "../lib/discord.js";
 import { translateText, languageName } from "../lib/translate.js";
+
+// Rendered as Discord subtext at the end of every message this extension sends.
+const EXT_VERSION = chrome.runtime.getManifest().version;
+const FOOTER = `\n-# sent by x-emissary-plugin v${EXT_VERSION}`;
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
@@ -72,7 +76,10 @@ async function sendTweet(tweetId, webhookId, translate = false) {
     }
   }
 
-  const header = `**${tweet.displayName}** — ${date.label}${date.source === "posted" ? " (posted)" : ""}`;
+  // The message is posted under the author's own name and avatar, so repeating the
+  // display name here would just be duplication — lead with the handle instead.
+  const byline = tweet.screenName ? `@${tweet.screenName}` : tweet.displayName;
+  const header = `**${byline}** — ${date.label}${date.source === "posted" ? " (posted)" : ""}`;
   const tweetBody = bodyText ? `\n\n${bodyText}${translationNote}` : "";
   const link = `\n\n<${tweet.url}>`;
 
@@ -132,7 +139,7 @@ async function sendTweet(tweetId, webhookId, translate = false) {
   const videoSuffix = linkOnlyVideos.length
     ? `\n📹 ${[...new Set(linkOnlyVideos)].join(" ")}`
     : "";
-  const fixedTail = link + videoSuffix;
+  const fixedTail = link + videoSuffix + FOOTER;
   const content = truncateContent(header + tweetBody, fixedTail);
 
   const result = await postToWebhook({
@@ -140,6 +147,8 @@ async function sendTweet(tweetId, webhookId, translate = false) {
     content,
     embeds,
     files,
+    username: sanitizeUsername(tweet.displayName, tweet.screenName),
+    avatarUrl: tweet.avatarUrl,
   });
 
   if (!result.ok) {
@@ -151,7 +160,7 @@ async function sendTweet(tweetId, webhookId, translate = false) {
 async function testWebhook(webhookUrl) {
   const result = await postToWebhook({
     webhookUrl,
-    content: "X Emissary connection test ✓",
+    content: `X Emissary connection test ✓${FOOTER}`,
   });
   if (!result.ok) return { ok: false, error: `Discord ${result.status}: ${result.body || "(no body)"}` };
   return { ok: true };

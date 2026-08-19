@@ -7,6 +7,7 @@ No bot to host, no Discord app to authorise, no X API keys. Just webhooks.
 ## Features
 
 - **Native feel** — the item is injected into X's existing share menu, styled to match.
+- **Posts as the author** — each message carries the original account's name and profile picture, so a forwarded post is recognisable at a glance.
 - **Multiple destinations** — save as many webhooks as you like; the picker lets you choose per post.
 - **Images and video** are re-uploaded as real Discord attachments, so they render inline instead of relying on a link preview. Oversized images are downscaled in-browser; oversized videos step down through lower-bitrate variants before falling back to a link.
 - **Smart dates** — the date is parsed out of the post text where one is mentioned (ISO, slash formats, "April 30, 2026", "yesterday", "in 3 days", …) and falls back to the post's own timestamp otherwise.
@@ -66,10 +67,18 @@ X Emissary has no backend and collects nothing. Your webhook URLs stay in your b
 
 ## Notes and limits
 
+- Every message ends with a small `sent by x-emissary-plugin vX.Y.Z` footer. The version comes from `manifest.json` — see [CHANGELOG.md](CHANGELOG.md) for the bump convention.
 - Discord's 2000-character message limit is respected — post text is truncated with `…` and the link to the original is always preserved at the end.
 - Discord allows 10 attachments per message; combined images + video are capped at 10.
 - X's DOM is generated and its class names rotate, so share-menu detection uses `role="menu"` semantics plus a content heuristic. If X materially changes the menu wording, `isShareMenu` in [content/content.js](content/content.js) is the place to adjust.
 - Turn on **Debug logging** in options when troubleshooting: share-menu detail goes to the page console, post fetching to the service-worker console.
+
+## Porting to other platforms
+
+The exact wire format sent to Discord — payload shape, message grammar, attachment
+naming, truncation and sanitising rules — is specified in
+[docs/WEBHOOK_FORMAT.md](docs/WEBHOOK_FORMAT.md), so other clients can produce identical
+output.
 
 ## Credits
 
