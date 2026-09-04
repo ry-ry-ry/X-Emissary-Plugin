@@ -4,23 +4,24 @@ import { extractDate } from "../lib/dateParser.js";
 import { shrinkImage } from "../lib/mediaShrink.js";
 import { postToWebhook, truncateContent, sanitizeUsername, MAX_ATTACHMENTS } from "../lib/discord.js";
 import { translateText, languageName } from "../lib/translate.js";
+import { normalisePost as normaliseLinkedIn, resolveVideo } from "../lib/providers/linkedin.js";
 
 // Rendered as Discord subtext at the end of every message this extension sends.
 const EXT_VERSION = chrome.runtime.getManifest().version;
 const FOOTER = `\n-# sent by x-emissary-plugin v${EXT_VERSION}`;
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     try {
       if (msg.type === "getWebhooks") {
         sendResponse({ ok: true, webhooks: await getWebhooks() });
       } else if (msg.type === "getPreview") {
-        sendResponse({ ok: true, preview: await buildPreview(msg.tweetId) });
+        sendResponse({ ok: true, preview: await buildPreview(msg.ref) });
       } else if (msg.type === "openOptions") {
         chrome.runtime.openOptionsPage();
         sendResponse({ ok: true });
       } else if (msg.type === "send") {
-        sendResponse(await sendTweet(msg.tweetId, msg.webhookId, !!msg.translate));
+        sendResponse(await sendPost(msg.ref, msg.webhookId, !!msg.translate, sender, !!msg.closeTab));
       } else if (msg.type === "testWebhook") {
         sendResponse(await testWebhook(msg.webhookUrl));
       } else {
@@ -33,9 +34,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true;
 });
 
-async function buildPreview(tweetId) {
+// Resolves a picker reference into the shared post shape, whichever site it came from.
+// X posts are fetched by ID; LinkedIn posts arrive already scraped from the page,
+// because LinkedIn has no API that serves a post from an ID.
+async function resolvePost(ref, settings) {
+  if (ref && ref.provider === "linkedin") return normaliseLinkedIn(ref.post || {});
+  return getTweet(ref.tweetId, settings.debug);
+}
+
+async function buildPreview(ref) {
   const settings = await getSettings();
-  const tweet = await getTweet(tweetId, settings.debug);
+  const tweet = await resolvePost(ref, settings);
   const date = extractDate(tweet.text, tweet.postedIso, settings.dateFormat);
   return {
     displayName: tweet.displayName,
@@ -43,20 +52,20 @@ async function buildPreview(tweetId) {
     dateLabel: date.label,
     dateSource: date.source,
     photoCount: tweet.photos.length,
-    videoCount: tweet.videos.length,
+    videoCount: tweet.videos.length || (tweet.videoCandidates && tweet.videoCandidates.length ? 1 : 0),
     url: tweet.url,
     lang: tweet.lang || "",
   };
 }
 
-async function sendTweet(tweetId, webhookId, translate = false) {
+async function sendPost(ref, webhookId, translate = false, sender = null, closeTab = false) {
   const [webhooks, settings] = await Promise.all([getWebhooks(), getSettings()]);
   const webhook = webhooks.find((w) => w.id === webhookId);
   if (!webhook) return { ok: false, error: "Webhook not found" };
 
   const capBytes = Math.max(1, Math.floor(settings.sizeCapMb * 1024 * 1024));
 
-  const tweet = await getTweet(tweetId, settings.debug);
+  const tweet = await resolvePost(ref, settings);
   const date = extractDate(tweet.text, tweet.postedIso, settings.dateFormat);
 
   // Auto-translate: replace the tweet text with its English translation, noting the
@@ -103,6 +112,35 @@ async function sendTweet(tweetId, webhookId, translate = false) {
       }
     } catch {
       embeds.push({ url, image: { url } });
+    }
+  }
+
+  // LinkedIn video: the player streams from a blob: URL, so there is no single file to
+  // grab. resolveVideo() tries to reassemble one from the URLs the page fetched; when
+  // that fails we attach the poster frame so the message still shows what the video is,
+  // and fall back to linking the post.
+  if (tweet.videoCandidates && tweet.videoCandidates.length) {
+    let attached = false;
+    if (files.length < MAX_ATTACHMENTS) {
+      const blob = await resolveVideo(tweet.videoCandidates, capBytes, settings.debug);
+      if (blob) {
+        files.push({ filename: "video-1.mp4", blob });
+        attached = true;
+      }
+    }
+    if (!attached) {
+      if (tweet.posterUrl && files.length < MAX_ATTACHMENTS) {
+        try {
+          const res = await fetch(tweet.posterUrl);
+          if (res.ok) {
+            const blob = await res.blob();
+            if (blob.size <= capBytes) files.push({ filename: "video-thumbnail.jpg", blob });
+          }
+        } catch {
+          // The thumbnail is a nicety; the link below is the real fallback.
+        }
+      }
+      linkOnlyVideos.push(tweet.url);
     }
   }
 
@@ -153,6 +191,20 @@ async function sendTweet(tweetId, webhookId, translate = false) {
 
   if (!result.ok) {
     return { ok: false, error: `Discord ${result.status}: ${result.body || "(no body)"}` };
+  }
+
+  // Closes only when the sender ticked the box in the picker, never from a stored
+  // setting alone — otherwise sharing from a tab you were reading would close it.
+  // Delayed so the picker can show "Sent ✓" first.
+  if (closeTab && sender && sender.tab && sender.tab.id != null) {
+    const tabId = sender.tab.id;
+    setTimeout(() => {
+      try {
+        chrome.tabs.remove(tabId);
+      } catch {
+        // Tab already gone — nothing to do.
+      }
+    }, 1000);
   }
   return { ok: true };
 }

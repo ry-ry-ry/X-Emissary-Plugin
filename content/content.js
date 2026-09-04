@@ -1,6 +1,7 @@
 (() => {
   const MENU_ITEM_MARK = "data-x-emissary";
   const TAG = "[XEmissary]";
+  const SITE = /(^|\.)linkedin\.com$/i.test(location.hostname) ? "linkedin" : "x";
 
   // Debug logging is controlled by the "debug" setting in the options page.
   // Loaded async from storage; defaults off until loaded, and updates live when toggled.
@@ -33,6 +34,7 @@
   document.addEventListener(
     "pointerdown",
     (e) => {
+      if (SITE !== "x") return;
       const target = e.target;
       if (!(target instanceof Element)) return;
 
@@ -137,7 +139,8 @@
       }
     }
   });
-  observer.observe(document.body, { childList: true, subtree: true });
+  if (SITE === "x") observer.observe(document.body, { childList: true, subtree: true });
+  if (SITE === "linkedin") startLinkedIn();
 
   function considerMenu(menu) {
     if (menu.hasAttribute(MENU_ITEM_MARK)) return;
@@ -180,7 +183,7 @@
         ev.preventDefault();
         ev.stopPropagation();
         closeMenu(menu);
-        openPicker(tweetId);
+        openPicker({ provider: "x", tweetId });
       });
       const group = sibling.parentElement || menu;
       group.appendChild(item);
@@ -274,10 +277,187 @@
     if (menu.parentElement) menu.style.display = "none";
   }
 
+  // ---------- LinkedIn ----------
+  // Post pages only. The logged-in feed renders through a different system with hashed
+  // class names and no post URN anywhere in the DOM, so there is nothing stable to
+  // anchor an injection to there.
+  const LI_POST_SEL = ".feed-shared-update-v2[data-urn]";
+  const LI_MENU_SEL = ".feed-shared-control-menu__content";
+  const LI_ITEM_SEL = "li.feed-shared-control-menu__item";
+
+  function startLinkedIn() {
+    chrome.storage.sync.get("settings", ({ settings }) => {
+      if (!(settings && settings.linkedinEnabled)) {
+        log("linkedin support is off in settings");
+        return;
+      }
+      // Menu items render lazily: the dropdown opens empty and fills a moment later,
+      // so watch for the items appearing rather than for the dropdown itself.
+      const mo = new MutationObserver(() => {
+        for (const menu of document.querySelectorAll(LI_MENU_SEL)) {
+          if (menu.hasAttribute(MENU_ITEM_MARK)) continue;
+          if (!menu.querySelector(LI_ITEM_SEL)) continue;
+          const post = menu.closest(LI_POST_SEL);
+          if (!post) continue;
+          menu.setAttribute(MENU_ITEM_MARK, "1");
+          injectLinkedInItem(menu, post);
+        }
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+      log("linkedin menu observer active");
+    });
+  }
+
+  function injectLinkedInItem(menu, post) {
+    const sibling = menu.querySelector(LI_ITEM_SEL);
+    const list = sibling && sibling.parentElement;
+    if (!list) return;
+    // Clone a real item so it inherits LinkedIn's styling, then relabel it.
+    const item = sibling.cloneNode(true);
+    item.className = `${sibling.className.replace(/option-\S+/g, "").trim()} option-x-emissary`;
+    const headline = item.querySelector(".feed-shared-control-menu__headline");
+    if (headline) headline.textContent = "Send to Discord";
+    const sub = item.querySelector(".feed-shared-control-menu__sub-headline");
+    if (sub) sub.textContent = "via X Emissary";
+    item.setAttribute("data-x-emissary-item", "1");
+    item.style.cursor = "pointer";
+    item.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const scraped = scrapeLinkedInPost(post);
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      if (!scraped) {
+        log("could not scrape post");
+        return;
+      }
+      openPicker({ provider: "linkedin", post: scraped });
+    });
+    list.appendChild(item);
+    log("linkedin item injected");
+  }
+
+  function scrapeLinkedInPost(post) {
+    const urn = post.getAttribute("data-urn");
+    if (!urn) return null;
+    const text = (el) => (el ? el.textContent.replace(/\s+/g, " ").trim() : "");
+
+    const nameEl = post.querySelector(".update-components-actor__title");
+    const linkEl = post.querySelector("a.update-components-actor__meta-link");
+    const avatarEl = post.querySelector("img.update-components-actor__avatar-image");
+    const bodyEl =
+      post.querySelector(".update-components-text") ||
+      post.querySelector(".feed-shared-inline-show-more-text");
+
+    // The handle comes out of the actor's URL: /company/anduril/posts -> anduril
+    let screenName = "";
+    const href = linkEl && linkEl.getAttribute("href");
+    if (href) {
+      const m = href.match(/linkedin\.com\/(?:company|in|school)\/([^/?#]+)/i);
+      if (m) screenName = decodeURIComponent(m[1]);
+    }
+
+    // Scope images to the media container — a bare img sweep also picks up the avatar,
+    // reaction icons and every commenter's photo.
+    const photos = [...post.querySelectorAll(".update-components-image img")]
+      .map((i) => i.currentSrc || i.src)
+      .filter((u) => u && /licdn\.com/.test(u));
+
+    const video = post.querySelector("video");
+    const posterUrl = video && video.poster ? video.poster : null;
+    const assetId = assetIdFrom(posterUrl);
+
+    return {
+      urn,
+      url: `https://www.linkedin.com/feed/update/${urn}/`,
+      displayName: text(nameEl) || "Unknown",
+      screenName,
+      avatarUrl: avatarEl ? avatarEl.currentSrc || avatarEl.src : null,
+      text: text(bodyEl),
+      photos,
+      posterUrl,
+      // Progressive MP4s first — they are single files needing no reassembly. The
+      // network-log URLs are only a fallback for when the payload isn't in the DOM.
+      videoCandidates: video
+        ? [...collectProgressiveVideos(assetId), ...collectVideoUrls(posterUrl)]
+        : [],
+    };
+  }
+
+  function assetIdFrom(posterUrl) {
+    if (!posterUrl) return null;
+    const m = posterUrl.match(/\/vid\/(?:v2|dash)\/([^/]+)\//);
+    return m ? m[1] : null;
+  }
+
+  // LinkedIn ships its API payloads inside <code> elements in the page HTML. For a video
+  // post, one of them carries progressiveStreams — whole signed MP4 files, exactly what
+  // we want. This is far more reliable than the network log: the player streams from a
+  // blob: URL and, depending on how the page was reached, may never request a manifest
+  // at all. Every licdn URL is individually signed, so it can only be read, not built.
+  function collectProgressiveVideos(assetId) {
+    const found = [];
+    for (const code of document.querySelectorAll("code")) {
+      const raw = code.textContent || "";
+      // Cheap guards first: these payloads run to hundreds of KB.
+      if (raw.indexOf("progressiveStreams") === -1) continue;
+      if (raw.indexOf("licdn.com") === -1) continue;
+      let json;
+      try {
+        json = JSON.parse(raw);
+      } catch {
+        continue; // Not every <code> block is JSON.
+      }
+      walkForStreams(json, found, 0);
+    }
+    const scoped = assetId ? found.filter((s) => s.url.includes(assetId)) : found;
+    // Best quality first; the background takes the first that fits under the cap.
+    return (scoped.length ? scoped : found)
+      .sort((a, b) => b.bitRate - a.bitRate)
+      .map((s) => s.url);
+  }
+
+  function walkForStreams(node, out, depth) {
+    if (!node || typeof node !== "object" || depth > 10) return;
+    if (Array.isArray(node)) {
+      for (const child of node) walkForStreams(child, out, depth + 1);
+      return;
+    }
+    if (Array.isArray(node.progressiveStreams)) {
+      for (const stream of node.progressiveStreams) {
+        const loc = stream && Array.isArray(stream.streamingLocations) ? stream.streamingLocations[0] : null;
+        if (loc && loc.url) out.push({ url: loc.url, bitRate: stream.bitRate || 0 });
+      }
+    }
+    for (const value of Object.values(node)) {
+      if (value && typeof value === "object") walkForStreams(value, out, depth + 1);
+    }
+  }
+
+  // A LinkedIn <video> src is a blob: MSE URL, so the real media URLs can only come from
+  // what the page was observed fetching. Filter to this post's asset id — taken from the
+  // poster URL — so a page showing several videos cannot mix them up.
+  function collectVideoUrls(posterUrl) {
+    let assetId = null;
+    if (posterUrl) {
+      const m = posterUrl.match(/\/vid\/(?:v2|dash)\/([^/]+)\//);
+      if (m) assetId = m[1];
+    }
+    try {
+      return performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .filter((u) => /licdn\.com/.test(u) && /\/playlist\/vid\//.test(u))
+        .filter((u) => !/thumbnail/i.test(u))
+        .filter((u) => !assetId || u.includes(assetId));
+    } catch {
+      return [];
+    }
+  }
+
   // ---------- Picker modal ----------
   let modalEl = null;
 
-  function openPicker(tweetId) {
+  function openPicker(ref) {
     closePicker();
     modalEl = document.createElement("div");
     modalEl.className = "xe-modal-backdrop";
@@ -292,6 +472,10 @@
           <input type="checkbox" class="xe-translate-cb" />
           <span>Auto-translate to English</span>
         </label>
+        <label class="xe-translate xe-closetab">
+          <input type="checkbox" class="xe-closetab-cb" />
+          <span>Close this tab after sending</span>
+        </label>
         <div class="xe-webhook-list">Loading webhooks…</div>
         <div class="xe-status" hidden></div>
       </div>
@@ -302,8 +486,15 @@
     });
     modalEl.querySelector(".xe-close").addEventListener("click", closePicker);
 
-    loadPreview(tweetId);
-    loadWebhooks(tweetId);
+    // The tab only ever closes when this box is ticked at send time, so it can never
+    // take away a tab you were reading. The options page sets its default.
+    chrome.storage.sync.get("settings", ({ settings }) => {
+      const cb = modalEl && modalEl.querySelector(".xe-closetab-cb");
+      if (cb) cb.checked = !!(settings && settings.closeAfterSend);
+    });
+
+    loadPreview(ref);
+    loadWebhooks(ref);
 
     document.addEventListener("keydown", escListener, true);
   }
@@ -318,11 +509,11 @@
     document.removeEventListener("keydown", escListener, true);
   }
 
-  async function loadPreview(tweetId) {
+  async function loadPreview(ref) {
     if (!modalEl) return;
     const target = modalEl.querySelector(".xe-preview");
     try {
-      const resp = await chrome.runtime.sendMessage({ type: "getPreview", tweetId });
+      const resp = await chrome.runtime.sendMessage({ type: "getPreview", ref });
       if (!modalEl) return;
       if (!resp || !resp.ok) {
         target.textContent = "Couldn't load preview: " + (resp && resp.error ? resp.error : "unknown error");
@@ -372,7 +563,7 @@
     return names[code] || names[code.split("-")[0]] || code;
   }
 
-  async function loadWebhooks(tweetId) {
+  async function loadWebhooks(ref) {
     if (!modalEl) return;
     const list = modalEl.querySelector(".xe-webhook-list");
     try {
@@ -400,7 +591,7 @@
         const btn = document.createElement("button");
         btn.className = "xe-btn xe-webhook-btn";
         btn.textContent = w.name;
-        btn.addEventListener("click", () => sendToWebhook(tweetId, w.id, btn, getTranslateChecked()));
+        btn.addEventListener("click", () => sendToWebhook(ref, w.id, btn, getTranslateChecked()));
         list.appendChild(btn);
       }
     } catch (e) {
@@ -413,7 +604,12 @@
     return !!(cb && cb.checked);
   }
 
-  async function sendToWebhook(tweetId, webhookId, btn, translate) {
+  function getCloseTabChecked() {
+    const cb = modalEl && modalEl.querySelector(".xe-closetab-cb");
+    return !!(cb && cb.checked);
+  }
+
+  async function sendToWebhook(ref, webhookId, btn, translate) {
     if (!modalEl) return;
     const status = modalEl.querySelector(".xe-status");
     const buttons = modalEl.querySelectorAll(".xe-webhook-btn");
@@ -423,7 +619,13 @@
     status.className = "xe-status xe-status-pending";
     status.textContent = translate ? "Translating & sending…" : "Sending…";
     try {
-      const resp = await chrome.runtime.sendMessage({ type: "send", tweetId, webhookId, translate });
+      const resp = await chrome.runtime.sendMessage({
+        type: "send",
+        ref,
+        webhookId,
+        translate,
+        closeTab: getCloseTabChecked(),
+      });
       if (resp && resp.ok) {
         status.className = "xe-status xe-status-ok";
         status.textContent = "Sent ✓";

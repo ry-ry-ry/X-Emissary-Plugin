@@ -35,6 +35,28 @@
     </section>
 
     <section class="card">
+      <h2>Sites</h2>
+      <p class="muted">X is always enabled. LinkedIn is opt-in, and asks for access to linkedin.com when you turn it on.</p>
+      <form id="sites-form" class="form">
+        <label class="checkbox-row">
+          <input id="linkedin-enabled" type="checkbox" />
+          <span>
+            LinkedIn support
+            <small class="muted">Adds <strong>Send to Discord</strong> to the ⋯ menu on LinkedIn <strong>post pages</strong> (<code>/posts/…</code> and <code>/feed/update/…</code>). The main feed is not supported: LinkedIn renders it with hashed class names and no post identifier, so there is nothing stable to attach to. Open a post to share it.</small>
+          </span>
+        </label>
+        <label class="checkbox-row">
+          <input id="close-after-send" type="checkbox" />
+          <span>
+            Tick "close this tab after sending" by default
+            <small class="muted">Sets the starting state of the checkbox in the send dialog. The tab only ever closes when that box is ticked when you send, so sharing from a tab you're reading never closes it unexpectedly.</small>
+          </span>
+        </label>
+        <span id="sites-status" class="status" hidden></span>
+      </form>
+    </section>
+
+    <section class="card">
       <h2>Settings</h2>
       <form id="settings-form" class="form">
         <label>

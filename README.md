@@ -73,6 +73,42 @@ X Emissary has no backend and collects nothing. Your webhook URLs stay in your b
 - X's DOM is generated and its class names rotate, so share-menu detection uses `role="menu"` semantics plus a content heuristic. If X materially changes the menu wording, `isShareMenu` in [content/content.js](content/content.js) is the place to adjust.
 - Turn on **Debug logging** in options when troubleshooting: share-menu detail goes to the page console, post fetching to the service-worker console.
 
+## LinkedIn (optional)
+
+Off by default. Turn it on under **Sites** in the options page — it asks for access to
+`linkedin.com` only at that point, and registers its content script at runtime, so a
+default install still only touches X.
+
+Once enabled, LinkedIn **post pages** (`/posts/…` and `/feed/update/…`) get a **Send to
+Discord** item in the ⋯ control menu, and everything downstream — author, avatar, date,
+translation, webhook picker, footer — works exactly as it does on X.
+
+**The main feed is not supported.** LinkedIn renders the logged-in feed through a
+different system: every class name is a rotating build hash and the post URN appears
+nowhere in the DOM, so there is no stable anchor to inject against or identify a post
+by. Open a post to share it — the **close this tab after sending** checkbox in the send
+dialog makes that round trip a single step.
+
+**Video is uploaded as a real attachment.** LinkedIn plays video from a `blob:` MSE URL,
+so there is no file to grab from the player. Instead the extension reads the page's own
+embedded API payload — LinkedIn ships it in `<code>` elements — which lists
+`progressiveStreams`: whole, signed MP4 files. The best one that fits under your upload
+cap is downloaded and re-uploaded to Discord.
+
+If that payload isn't present, it falls back to reassembling the DASH manifest (init
+plus media segments concatenated into a fragmented MP4), and finally to the poster frame
+plus a link.
+
+Every `licdn.com` URL is individually signed and bound to its exact path, so these URLs
+can only be **read** from the page, never constructed. Requesting a larger avatar or a
+different video rendition by editing the path returns 403.
+
+**Video needs a full page load.** The embedded payload is server-rendered, so it is
+present when you open a post directly or in a new tab, but not when you reach it by
+clicking through the feed without a page load. In that case you get the poster frame and
+a link. Opening posts in a new tab — which pairs well with **close the tab after
+sending** — is the reliable path.
+
 ## Porting to other platforms
 
 The exact wire format sent to Discord — payload shape, message grammar, attachment

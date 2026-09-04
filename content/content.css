@@ -143,3 +143,73 @@
 .xe-status-err { background: rgba(244, 33, 46, 0.18); white-space: pre-wrap; word-break: break-word; }
 
 .xe-sending { opacity: 0.7; }
+
+/* ---- Host-proofing ----
+   This dialog is injected into someone else's page. Two things break otherwise:
+   text colour is inherited from .xe-modal, and inheritance loses to any host rule that
+   targets span/label directly; and sites routinely restyle checkboxes out of existence
+   (appearance:none, opacity:0, absolute positioning) to draw their own. Set the values
+   that must survive explicitly. Scoped under .xe-modal-backdrop so nothing leaks out. */
+.xe-modal-backdrop .xe-modal {
+  background: #15202b !important;
+  color: #e7e9ea !important;
+}
+.xe-modal-backdrop .xe-title,
+.xe-modal-backdrop .xe-close,
+.xe-modal-backdrop .xe-preview,
+.xe-modal-backdrop .xe-preview-name,
+.xe-modal-backdrop .xe-preview-meta,
+.xe-modal-backdrop .xe-preview-snippet,
+.xe-modal-backdrop .xe-translate,
+.xe-modal-backdrop .xe-translate span,
+.xe-modal-backdrop .xe-webhook-heading,
+.xe-modal-backdrop .xe-empty,
+.xe-modal-backdrop .xe-status,
+.xe-modal-backdrop .xe-btn {
+  color: #e7e9ea !important;
+}
+.xe-modal-backdrop .xe-btn-primary { color: #ffffff !important; }
+
+.xe-modal-backdrop .xe-translate input[type="checkbox"] {
+  -webkit-appearance: checkbox !important;
+  appearance: auto !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  position: static !important;
+  clip: auto !important;
+  clip-path: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: initial !important;
+  background: initial !important;
+  transform: none !important;
+  pointer-events: auto !important;
+  accent-color: #1d9bf0;
+  flex: none;
+}
+
+@media (prefers-color-scheme: light) {
+  .xe-modal-backdrop .xe-modal {
+    background: #ffffff !important;
+    color: #0f1419 !important;
+  }
+  .xe-modal-backdrop .xe-title,
+  .xe-modal-backdrop .xe-close,
+  .xe-modal-backdrop .xe-preview,
+  .xe-modal-backdrop .xe-preview-name,
+  .xe-modal-backdrop .xe-preview-meta,
+  .xe-modal-backdrop .xe-preview-snippet,
+  .xe-modal-backdrop .xe-translate,
+  .xe-modal-backdrop .xe-translate span,
+  .xe-modal-backdrop .xe-webhook-heading,
+  .xe-modal-backdrop .xe-empty,
+  .xe-modal-backdrop .xe-status,
+  .xe-modal-backdrop .xe-btn {
+    color: #0f1419 !important;
+  }
+  .xe-modal-backdrop .xe-btn-primary { color: #ffffff !important; }
+}

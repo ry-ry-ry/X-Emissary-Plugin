@@ -4,7 +4,8 @@
       "Bash(curl -s \"https://raw.githubusercontent.com/discord/discord-api-docs/main/developers/resources/message.mdx\")",
       "Bash(curl -s 'https://api.github.com/search/code?q=discord+embeds+same+url+multiple+images+webhook&per_page=5' -H 'Accept: application/vnd.github.v3+json')",
       "Bash(python3 -m json.tool)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:discord.com)"
     ]
   }
 }

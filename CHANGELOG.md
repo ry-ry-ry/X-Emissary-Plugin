@@ -7,6 +7,28 @@ The version in `manifest.json` is the single source of truth — it is what the 
 Web Store reads, and what the message footer reports. The Web Store rejects an upload
 whose version is not higher than the published one, so bump it on every submission.
 
+## 1.2.0
+
+- **LinkedIn support**, off by default. Enable it under Sites in the options page; it
+  requests access to `linkedin.com` only when you turn it on, and registers its content
+  script at runtime so a default install still only touches X.
+- Adds **Send to Discord** to the ⋯ control menu on LinkedIn post pages.
+- **Post pages only.** LinkedIn's logged-in feed renders through a different system with
+  hashed class names and no post URN in the DOM, so there is no stable anchor to inject
+  against. Open a post to share it.
+- LinkedIn video is re-uploaded as a real Discord attachment. The player streams from a
+  `blob:` MSE URL, so the extension reads the page's embedded API payload for
+  `progressiveStreams` — whole signed MP4 files — and uploads the best one that fits
+  under the cap. Falls back to reassembling the DASH manifest, then to the poster frame
+  plus a link. Requires a full page load, since the payload is server-rendered.
+- Fixed the send dialog picking up the host page's text colour and losing its
+  checkboxes. Label colour was inherited, which loses to any site rule targeting
+  `span`/`label`, and sites routinely hide real checkboxes to draw their own. Colours and
+  control styling are now set explicitly and scoped to the dialog.
+- New **close this tab after sending** checkbox in the send dialog, for when a post was
+  opened only to share it. The tab closes only when that box is ticked at send time, so
+  sharing from a tab you are reading never closes it. The options page sets its default.
+
 ## 1.1.0
 
 - Messages are now posted under the original author's name and profile picture, so a
