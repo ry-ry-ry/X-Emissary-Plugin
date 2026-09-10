@@ -1,4 +1,10 @@
 import { getWebhooks, setWebhooks, getSettings, setSettings, newId } from "../lib/storage.js";
+import {
+  LINKEDIN_ORIGINS,
+  registerLinkedInScript,
+  unregisterLinkedInScript,
+  hasLinkedInPermission,
+} from "../lib/linkedinScript.js";
 
 const list = document.getElementById("webhook-list");
 const tmpl = document.getElementById("webhook-row-template");
@@ -17,12 +23,6 @@ const linkedinEnabled = document.getElementById("linkedin-enabled");
 const closeAfterSend = document.getElementById("close-after-send");
 const sitesStatus = document.getElementById("sites-status");
 
-const LINKEDIN_ORIGINS = ["https://www.linkedin.com/*", "https://*.licdn.com/*"];
-const LINKEDIN_SCRIPT_ID = "linkedin";
-
-// LinkedIn is an optional host permission, so the content script is registered at
-// runtime rather than declared in the manifest. That keeps the default install limited
-// to X, which matters both for trust and for store review.
 linkedinEnabled.addEventListener("change", async () => {
   if (linkedinEnabled.checked) {
     // chrome.permissions.request() MUST be the first call in this handler. Awaiting
@@ -76,32 +76,6 @@ async function inPopup() {
   }
 }
 
-async function registerLinkedInScript() {
-  try {
-    const existing = await chrome.scripting.getRegisteredContentScripts({ ids: [LINKEDIN_SCRIPT_ID] });
-    if (existing && existing.length) return;
-  } catch {
-    // Not registered yet.
-  }
-  await chrome.scripting.registerContentScripts([
-    {
-      id: LINKEDIN_SCRIPT_ID,
-      matches: ["https://www.linkedin.com/*"],
-      js: ["content/content.js"],
-      css: ["content/content.css"],
-      runAt: "document_idle",
-      persistAcrossSessions: true,
-    },
-  ]);
-}
-
-async function unregisterLinkedInScript() {
-  try {
-    await chrome.scripting.unregisterContentScripts({ ids: [LINKEDIN_SCRIPT_ID] });
-  } catch {
-    // Already gone.
-  }
-}
 
 addForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -222,17 +196,15 @@ async function init() {
 
   // The permission can be revoked from chrome://extensions without touching our
   // settings, so trust the permission rather than the stored flag.
-  let hasLinkedIn = false;
-  try {
-    hasLinkedIn = await chrome.permissions.contains({ origins: LINKEDIN_ORIGINS });
-  } catch {
-    hasLinkedIn = false;
-  }
+  const hasLinkedIn = await hasLinkedInPermission();
   linkedinEnabled.checked = !!settings.linkedinEnabled && hasLinkedIn;
   if (settings.linkedinEnabled && !hasLinkedIn) {
     await setSettings({ linkedinEnabled: false });
     await unregisterLinkedInScript();
   }
+  // The registration is dropped by an extension reload/update while the setting
+  // survives, so repair it here too rather than waiting for the next browser start.
+  if (linkedinEnabled.checked) await registerLinkedInScript();
 
   await renderList();
 }

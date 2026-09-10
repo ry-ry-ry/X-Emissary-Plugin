@@ -7,6 +7,24 @@ The version in `manifest.json` is the single source of truth — it is what the 
 Web Store reads, and what the message footer reports. The Web Store rejects an upload
 whose version is not higher than the published one, so bump it on every submission.
 
+## 1.2.1
+
+- Fixed LinkedIn support silently doing nothing after an extension reload or update.
+  The content script is registered dynamically (because LinkedIn is an optional
+  permission), and those registrations are dropped on reload while the setting and the
+  granted permission both survive — so options still showed it enabled while nothing was
+  injected. The background now reconciles registration against the setting on install
+  and on startup, and the options page repairs it on open.
+
+- Auto-translate now falls back to other services when Google rate-limits the request
+  (HTTP 429), instead of giving up. Order is Google → Lingva → MyMemory; the first that
+  answers wins, and translation only reports as unavailable if all three fail.
+- Lingva's reported source language is ignored — it was observed returning "en" for both
+  French and Russian input. The post's own language field is used for the
+  "translated from …" note instead.
+- MyMemory is skipped for posts over 500 characters, its hard query limit. Truncating
+  would silently drop content, so it declines rather than return a partial translation.
+
 ## 1.2.0
 
 - **LinkedIn support**, off by default. Enable it under Sites in the options page; it

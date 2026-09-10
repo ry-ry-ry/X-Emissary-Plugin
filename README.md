@@ -11,7 +11,7 @@ No bot to host, no Discord app to authorise, no X API keys. Just webhooks.
 - **Multiple destinations** — save as many webhooks as you like; the picker lets you choose per post.
 - **Images and video** are re-uploaded as real Discord attachments, so they render inline instead of relying on a link preview. Oversized images are downscaled in-browser; oversized videos step down through lower-bitrate variants before falling back to a link.
 - **Smart dates** — the date is parsed out of the post text where one is mentioned (ISO, slash formats, "April 30, 2026", "yesterday", "in 3 days", …) and falls back to the post's own timestamp otherwise.
-- **Optional auto-translate** — a checkbox on the send dialog replaces the post text with an English translation, noting the detected source language. Ticks itself automatically when the post isn't already English. No API key needed.
+- **Optional auto-translate** — a checkbox on the send dialog replaces the post text with an English translation, noting the detected source language. Ticks itself automatically when the post isn't already English. No API key needed. Three free services are tried in order (Google, then Lingva, then MyMemory), so a rate-limit on one doesn't lose you the translation.
 - **Quote posts handled correctly** — shares the post you clicked, not the post it quotes.
 
 ## Install
@@ -126,6 +126,8 @@ X Emissary is an independent project, built on top of services run by other peop
 | [Discord](https://discord.com) | The destination. Messages and media are delivered through Discord's webhook API. |
 | [FxTwitter / FxEmbed](https://github.com/FxEmbed/FxEmbed) | The open-source public API that supplies each post's text, author and media URLs. Used under its own terms — thanks to its maintainers, who do the hard part. |
 | [Google Translate](https://translate.google.com) | Powers the optional "Auto-translate to English" checkbox, via Google's public translate endpoint. Contacted only when you tick the box. |
+| [Lingva](https://github.com/thedaviddelta/lingva-translate) | Open-source Google Translate front-end. Used as the first translation fallback when Google rate-limits. |
+| [MyMemory](https://mymemory.translated.net) | Translation memory service by Translated.net. Used as the last translation fallback. |
 
 "X" is a trademark of X Corp. "Discord" is a trademark of Discord Inc. "Google" and "Google Translate" are trademarks of Google LLC. All other trademarks are the property of their respective owners. Their use here is descriptive — to say what this extension interoperates with — and does not imply any endorsement.
 

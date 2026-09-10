@@ -31,9 +31,19 @@ point the extension contacts, in order:
    third-party service with its own privacy practices.
 2. **`twimg.com`** (X's media CDN) — the images or video attached to that post are
    downloaded so they can be re-uploaded to Discord as real attachments.
-3. **`translate.googleapis.com`** — **only if** you tick "Auto-translate to English".
-   The post's text is sent to Google's public translate endpoint to be translated.
-   Leave the box unticked and Google is never contacted.
+3. **A translation service** — **only if** you tick "Auto-translate to English". The
+   post's text is sent to be translated. Leave the box unticked and none of these are
+   ever contacted. Services are tried in order, and it stops at the first that answers:
+   1. **`translate.googleapis.com`** — Google's public translate endpoint.
+   2. **`lingva.ml`** — used only when Google rate-limits the request. Lingva is an
+      open-source front-end to Google Translate, run by volunteers rather than by a
+      company, so the post's text passes through a third-party server operated by
+      someone unaffiliated with Google, this extension, or you.
+   3. **`api.mymemory.translated.net`** — used only when both of the above fail. Run by
+      Translated.net. Skipped entirely for posts over 500 characters.
+
+   Only the post's text is sent — no identifiers, and nothing about you or your account.
+   Posts are public content from X or LinkedIn.
 4. **Your Discord webhook URL** — receives the finished message: author name, post
    text (translated if you chose that), the date, the link, and the media files.
 
@@ -54,7 +64,7 @@ read your timeline, your account, your messages, or anything you type.
 | `x.com`, `twitter.com` | Add the "Send to Discord" item to the share menu and read the clicked post's ID |
 | `api.fxtwitter.com` | Fetch the post's text and media list |
 | `*.twimg.com` | Download the post's images and video for re-upload |
-| `translate.googleapis.com` | Optional translation, only when you tick the box |
+| `translate.googleapis.com`, `lingva.ml`, `api.mymemory.translated.net` | Optional translation, only when you tick the box. Tried in that order; the second and third are used only when the previous one fails or rate-limits |
 | `discord.com`, `discordapp.com` webhook paths | Deliver the message to the channel you chose |
 
 ## Data sale and transfer

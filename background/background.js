@@ -5,6 +5,23 @@ import { shrinkImage } from "../lib/mediaShrink.js";
 import { postToWebhook, truncateContent, sanitizeUsername, MAX_ATTACHMENTS } from "../lib/discord.js";
 import { translateText, languageName } from "../lib/translate.js";
 import { normalisePost as normaliseLinkedIn, resolveVideo } from "../lib/providers/linkedin.js";
+import { syncLinkedInScript } from "../lib/linkedinScript.js";
+
+// Reloading or updating the extension drops dynamically registered content scripts,
+// while the setting and host permission survive — which would leave LinkedIn support
+// switched on in options but injecting nothing. Re-assert it whenever we start up.
+async function restoreLinkedInScript() {
+  try {
+    const settings = await getSettings();
+    const result = await syncLinkedInScript(settings.linkedinEnabled);
+    if (settings.debug) console.warn("[XEmissary] linkedin content script:", result);
+  } catch (e) {
+    console.warn("[XEmissary] could not restore linkedin content script:", e && e.message ? e.message : e);
+  }
+}
+
+chrome.runtime.onInstalled.addListener(restoreLinkedInScript);
+chrome.runtime.onStartup.addListener(restoreLinkedInScript);
 
 // Rendered as Discord subtext at the end of every message this extension sends.
 const EXT_VERSION = chrome.runtime.getManifest().version;
